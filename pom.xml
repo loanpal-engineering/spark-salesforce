@@ -70,7 +70,7 @@
         <dependency>
             <groupId>com.github.loanpal-engineering</groupId>
             <artifactId>salesforce-wave-api</artifactId>
-            <version>1d662ac</version>
+            <version>b8d853f</version>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
