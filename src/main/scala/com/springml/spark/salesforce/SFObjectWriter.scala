@@ -37,7 +37,7 @@ class SFObjectWriter (
 
     val jobInfo = new JobInfo(WaveAPIConstants.STR_CSV, sfObject, operation(mode, upsert))
     jobInfo.setExternalIdFieldName(externalIdFieldName)
-
+    jobInfo.setConcurrencyMode("Serial")
     val jobId = bulkAPI.createJob(jobInfo).getId
 
     partitionedRDD.mapPartitionsWithIndex {
