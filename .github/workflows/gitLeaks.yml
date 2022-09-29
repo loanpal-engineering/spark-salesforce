@@ -1,0 +1,20 @@
+name: GitLeaksTest
+on:
+  - push
+jobs:
+  gitleaksScan:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          repository: loanpal-engineering/gitleaks-action
+          token: ${{ secrets.GHA_CLONE_PAT }}
+          path: gitleaksAction
+
+      - name: Run Action
+        uses: ./gitleaksAction
+        with: 
+          config-path: gitleaksAction/.gitleaks.toml
