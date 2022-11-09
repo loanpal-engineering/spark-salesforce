@@ -16,5 +16,3 @@ jobs:
 
       - name: Run Action
         uses: ./gitleaksAction
-        with: 
-          config-path: gitleaksAction/.gitleaks.toml
