@@ -1,0 +1,19 @@
+on:
+  deployment_status:
+   statuses: [success]
+jobs:
+  dorametrix:
+    if: 
+      ${{ github.event.deployment.environment == 'prod' && github.event.deployment_status.state == 'success' }} 
+    runs-on: ubuntu-latest
+    name: Dorametrix
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Dorametrix
+        uses: loanpal-engineering/devops-github-actions@latest
+        with:
+          endpoint: ${{ secrets.DORAMETRIX_ENDPOINT }} 
+          api-key: ${{ secrets.DORAMETRIX_API_KEY }}
