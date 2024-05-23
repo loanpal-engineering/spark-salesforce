@@ -76,6 +76,7 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
     val bulkFlag = flag(bulkStr, "bulk")
 
     val queryAllStr = parameters.getOrElse("queryAll", "false")
+    //    val maxColumns = parameters.getOrElse("maxColumns", "512")
     val queryAllFlag = flag(queryAllStr, "queryAll")
 
     validateMutualExclusive(saql, soql, "saql", "soql")
@@ -273,6 +274,11 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
         customHeaders += new BasicHeader("Sforce-Enable-PKChunking", "true")
       }
     }
+    val maxColumns = try {
+      parameters.getOrElse("maxColumns", "512").toInt
+    } catch {
+      case e: Exception => throw new Exception("max columns needs to be a valid integer")
+    }
 
     BulkRelation(
       username,
@@ -286,7 +292,8 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
       sqlContext,
       inferSchemaFlag,
       timeout,
-      maxCharsPerColumn
+      maxCharsPerColumn,
+      maxColumns
     )
   }
 
