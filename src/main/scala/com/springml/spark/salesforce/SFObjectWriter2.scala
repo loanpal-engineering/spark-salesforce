@@ -74,8 +74,8 @@ class SFObjectWriter2(val username: String,
 
     var i = 1
     var failedRecords = 0
-    val TIMEOUT_MAX = 7000
-    val BREAK_LOOP = 9000
+    val TIMEOUT_MAX = 700
+    val BREAK_LOOP = 900
     var isEmpty = false
     while (i < TIMEOUT_MAX) {
       var data: Array[GetJobInfoResponse] = Array()
@@ -87,6 +87,7 @@ class SFObjectWriter2(val username: String,
       failedRecords += data.map(x => x.getNumberRecordsFailed.toInt).sum
 
 //      val printFailedResults = new BufferedReader(client.getJobFailedRecordResults(data.head))
+
       data.foreach{
         x => if (x.getNumberRecordsFailed != 0) {
           logger.info(s"${x.getRetries} number of retries")
@@ -97,9 +98,17 @@ class SFObjectWriter2(val username: String,
               logger.info(line)
           }
         }
+          val jobInfo = client.getJobInfo(x.getId)
+          logger.info(s"${x.getId} processedRecords ${jobInfo.getNumberRecordsProcessed} state ${jobInfo.getState} total processing time ${jobInfo.getTotalProcessingTime}")
+          println(s"${x.getId} processedRecords ${jobInfo.getNumberRecordsProcessed} state ${jobInfo.getState} total processing time ${jobInfo.getTotalProcessingTime}")
       }
+
+      logger.info(s"${data.count(x=> x.isFinished)} finished jobs ${data.length} remanining jobs")
+      logger.info(s"${data.take(10).map(x => (x.getId, x.getState.toJsonValue)).mkString(",")} sample states")
+
       println(s"${data.count(x=> x.isFinished)} finished jobs ${data.length} remanining jobs")
       println(s"${data.take(10).map(x => (x.getId, x.getState.toJsonValue)).mkString(",")} sample states")
+
       } catch {
         case e: Exception => println(e)
           bulkJobIDs = allIds
