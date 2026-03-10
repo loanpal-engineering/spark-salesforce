@@ -32,6 +32,19 @@ class SFObjectWriter(
 
   @transient val logger = Logger.getLogger(classOf[SFObjectWriter])
 
+  // Single BulkAPI instance reused for all driver-side operations (createJob,
+  // closeJob, isCompleted). SFConfig.getPartnerConnection() is lazy, so this
+  // performs exactly ONE SOAP login for the entire driver-side lifecycle.
+  // Marked @transient because BulkAPI is not serializable — executors must
+  // create their own instances via newBulkAPI().
+  @transient private lazy val driverBulkAPI: BulkAPI = newBulkAPI()
+
+  // Fresh instance for executor-side operations (addBatch inside
+  // mapPartitionsWithIndex). Each partition authenticates once.
+  private def newBulkAPI(): BulkAPI = {
+    APIFactory.getInstance().bulkAPI(username, password, login, version)
+  }
+
   def writeData(rdd: RDD[Row]): Boolean = {
 
     val csvRDD = rdd.map { row =>
@@ -46,10 +59,8 @@ class SFObjectWriter(
 
     val jobInfo = new JobInfo(WaveAPIConstants.STR_CSV, sfObject, operation(mode, upsert))
     jobInfo.setExternalIdFieldName(externalIdFieldName)
-//    jobInfo.setConcurrencyMode("Serial")
-//    jobInfo.setNumberRetries("10")
 
-    val jobId = bulkAPI.createJob(jobInfo).getId
+    val jobId = driverBulkAPI.createJob(jobInfo).getId
 
     partitionedRDD.mapPartitionsWithIndex {
       case (index, iterator) => {
@@ -57,21 +68,19 @@ class SFObjectWriter(
         var batchInfoId: String = null
         if (records != null && !records.isEmpty()) {
           val data = csvHeader + "\n" + records
-          val batchInfo = bulkAPI.addBatch(jobId, data)
+          val batchInfo = newBulkAPI().addBatch(jobId, data)
           batchInfoId = batchInfo.getId
         }
 
         val success = (batchInfoId != null)
-        // Job status will be checked after completing all batches
         List(success).iterator
       }
     }.reduce((a, b) => a & b)
 
-    bulkAPI.closeJob(jobId)
+    driverBulkAPI.closeJob(jobId)
     var i = 1
     while (i < 999999) {
-      val isComplete = bulkAPI.isCompleted(jobId)
-      if (bulkAPI.isCompleted(jobId)) {
+      if (driverBulkAPI.isCompleted(jobId)) {
         logger.info("Job completed")
         return true
       }
@@ -83,11 +92,6 @@ class SFObjectWriter(
     print("Returning false...")
     logger.info("Job not completed. Timeout...")
     false
-  }
-
-  // Create new instance of BulkAPI every time because Spark workers cannot serialize the object
-  private def bulkAPI(): BulkAPI = {
-    APIFactory.getInstance().bulkAPI(username, password, login, version)
   }
 
   private def operation(mode: SaveMode, upsert: Boolean): String = {
