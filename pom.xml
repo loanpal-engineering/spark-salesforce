@@ -6,7 +6,7 @@
     <artifactId>spark-salesforce</artifactId>
     <packaging>jar</packaging>
     <description>spark-salesforce</description>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <name>spark-salesforce</name>
     <organization>
         <name>com.springml</name>
