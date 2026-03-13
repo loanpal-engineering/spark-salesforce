@@ -11,3 +11,5 @@ project/target
 dependency-reduced-pom.xml
 /bin/
 .DS_Store
+.databricks
+.vscode/
