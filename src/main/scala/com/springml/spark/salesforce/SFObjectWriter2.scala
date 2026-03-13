@@ -38,16 +38,7 @@ class SFObjectWriter2(val username: String,
       ).mkString(",")
     }
 
-//    val partitionCnt = (1 + csvRDD.count() / batchSize).toInt
-//    val partitionedRDD = csvRDD.repartition(partitionCnt)
-
-//    val jobInfo = new JobInfo(WaveAPIConstants.STR_CSV, sfObject, operation(mode, upsert))
-//    jobInfo.setExternalIdFieldName(externalIdFieldName)
-    //    jobInfo.setConcurrencyMode("Serial")
-
-    //    jobInfo.setNumberRetries("10")
     val OperationEnum = operation(mode, upsert)
-//    val jobId = bulkAPI.createJob(jobInfo).getId
     var bulkJobIDs = csvRDD.mapPartitionsWithIndex {
       case (index, iterator) => {
 
@@ -55,22 +46,21 @@ class SFObjectWriter2(val username: String,
         var batchInfoId: String = null
         var id = ""
         if (records != null && !records.isEmpty()) {
-          val createResponse = client.createJob(sfObject, OperationEnum)
+          val partitionClient = newClient()
+          val createResponse = partitionClient.createJob(sfObject, OperationEnum)
           id = createResponse.getId
           val data = csvHeader + "\n" + records
-//          val batchInfo = bulkAPI.addBatch(jobId, data)
-//          batchInfoId = batchInfo.getId
-          client.uploadJobData(id, data)
-          client.closeJob(createResponse.getId)
-//          id = createResponse.getId
+          partitionClient.uploadJobData(id, data)
+          partitionClient.closeJob(createResponse.getId)
         }
 
-//        val success = (batchInfoId != null)
-        // Job status will be checked after completing all batches
         List(id).iterator
       }
     }.collect().filter(_ != null)
     val allIds = bulkJobIDs
+
+    // Single client instance for all driver-side polling (1 SOAP login total)
+    val pollingClient = newClient()
 
     var i = 1
     var failedRecords = 0
@@ -82,15 +72,14 @@ class SFObjectWriter2(val username: String,
       try {
        data = bulkJobIDs.map{
         id =>
-          client.getJobInfo(id)
+          pollingClient.getJobInfo(id)
       }
       failedRecords += data.map(x => x.getNumberRecordsFailed.toInt).sum
 
-//      val printFailedResults = new BufferedReader(client.getJobFailedRecordResults(data.head))
       data.foreach{
         x => if (x.getNumberRecordsFailed != 0) {
           logger.info(s"${x.getRetries} number of retries")
-          val results = new BufferedReader(client.getJobFailedRecordResults(x.getId))
+          val results = new BufferedReader(pollingClient.getJobFailedRecordResults(x.getId))
           results.lines().iterator().asScala.foreach{
             line =>
               println(line)
@@ -130,26 +119,17 @@ class SFObjectWriter2(val username: String,
 
   }
 
-//  // Create new instance of BulkAPI every time because Spark workers cannot serialize the object
-//  private def bulkAPI(): BulkAPI = {
-//    APIFactory.getInstance().bulkAPI(username, password, login, version)
-//  }
-//  val bulkAPIClient = new ForceApi(new ApiConfig()
-//  .setUsername(username)
-//  .setPassword(password)
-//  .setLoginEndpoint(login)
-//  .setApiVersion(ApiVersion.V48)
-//)
-  private def bulkAPIClient(): ForceApi = {
-  new ForceApi(new ApiConfig()
-    .setUsername(username)
-    .setPassword(password)
-    .setLoginEndpoint(login)
-    .setApiVersion(ApiVersion.V48))
-}
-  private  def client() = {
-
-    new Bulk2ClientBuilder().withSessionId(bulkAPIClient.getSession.getAccessToken, bulkAPIClient.getSession.getApiEndpoint)
+  // Authenticate once, reuse session for building Bulk2Client instances.
+  // ForceApi is not serializable, so executors call newClient() to get their own.
+  private def newClient(): Bulk2Client = {
+    val api = new ForceApi(new ApiConfig()
+      .setUsername(username)
+      .setPassword(password)
+      .setLoginEndpoint(login)
+      .setApiVersion(ApiVersion.V48))
+    val session = api.getSession
+    new Bulk2ClientBuilder()
+      .withSessionId(session.getAccessToken, session.getApiEndpoint)
       .build()
   }
 
@@ -157,16 +137,13 @@ class SFObjectWriter2(val username: String,
     if (upsert) {
       OperationEnum.UPSERT
     } else if (mode != null && SaveMode.Overwrite.name().equalsIgnoreCase(mode.name())) {
-//      WaveAPIConstants.STR_UPDATE
       OperationEnum.UPDATE
     } else if (mode != null && SaveMode.Append.name().equalsIgnoreCase(mode.name())) {
-//      WaveAPIConstants.STR_INSERT
       OperationEnum.INSERT
     } else {
       logger.warn("SaveMode " + mode + " Not supported. Using 'insert' operation")
       OperationEnum.INSERT
     }
   }
-
 
 }

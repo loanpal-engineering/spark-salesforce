@@ -6,7 +6,7 @@
     <artifactId>spark-salesforce</artifactId>
     <packaging>jar</packaging>
     <description>spark-salesforce</description>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <name>spark-salesforce</name>
     <organization>
         <name>com.springml</name>
@@ -93,6 +93,16 @@
             <groupId>endolabs.salesforce</groupId>
             <artifactId>bulkv2</artifactId>
             <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.14.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>logging-interceptor</artifactId>
+            <version>3.14.2</version>
         </dependency>
         <dependency>
             <groupId>com.frejo</groupId>

@@ -95,7 +95,7 @@ case class BulkRelation(
           val writer = new CsvWriter(outputWriter, writerSettings)
           parsedInput.foreach { writer.writeRow(_) }
 
-          outputWriter.toString.lines.toList
+          outputWriter.toString.split("\n").toList
         }
 
         splitCsvByRows(result)
